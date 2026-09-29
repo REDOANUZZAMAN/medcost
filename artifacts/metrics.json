@@ -1,0 +1,195 @@
+{
+  "dataset": {
+    "rows_in_original_csv": 2772,
+    "unique_rows": 1337,
+    "duplicate_rows": 1435
+  },
+  "leak_demo": {
+    "original_protocol": {
+      "r2": 0.9531167161536837,
+      "mae": 1276.9934110732795,
+      "rmse": 2682.478570331963,
+      "test_rows": 555,
+      "test_rows_also_in_train": 445
+    }
+  },
+  "cv": {
+    "mean_baseline": {
+      "r2": -0.006407232421096716,
+      "mae": 9140.957453151266,
+      "rmse": 12110.346506796137,
+      "r2_std": 0.010853461770355293,
+      "mae_std": 634.3466660343372,
+      "rmse_std": 915.1777666622166,
+      "description": "Always predict the average",
+      "uses_sex_region": true
+    },
+    "linear_original": {
+      "r2": 0.7237912216099394,
+      "mae": 4386.819948626436,
+      "rmse": 6312.6572673194805,
+      "r2_std": 0.04133974500062136,
+      "mae_std": 256.2995180482691,
+      "rmse_std": 470.06408887828314,
+      "description": "Original project's linear model",
+      "uses_sex_region": true
+    },
+    "rf_original": {
+      "r2": 0.8164321038748152,
+      "mae": 2922.697735307802,
+      "rmse": 5114.136432586509,
+      "r2_std": 0.04464261228249771,
+      "mae_std": 318.1654078822168,
+      "rmse_std": 524.8133087624266,
+      "description": "Original project's model (Random Forest, default settings)",
+      "uses_sex_region": true
+    },
+    "linear_engineered": {
+      "r2": 0.8505682697188731,
+      "mae": 2556.9100283965863,
+      "rmse": 4614.505327226015,
+      "r2_std": 0.03866656291900412,
+      "mae_std": 219.67581759764704,
+      "rmse_std": 555.1114541553969,
+      "description": "Linear + smoker x obesity interaction",
+      "uses_sex_region": true
+    },
+    "linear_engineered_no_sex_region": {
+      "r2": 0.8485323993930222,
+      "mae": 2582.0043163791534,
+      "rmse": 4647.017068771159,
+      "r2_std": 0.03849020452327748,
+      "mae_std": 217.46175188969195,
+      "rmse_std": 561.5572483869624,
+      "description": "Linear + smoker x obesity interaction, without sex/region",
+      "uses_sex_region": false
+    },
+    "rf_engineered": {
+      "r2": 0.8332336733341612,
+      "mae": 2813.8047867215637,
+      "rmse": 4879.893827642055,
+      "r2_std": 0.03968778250577275,
+      "mae_std": 269.2247204984532,
+      "rmse_std": 540.1781417545849,
+      "description": "Random Forest, tuned, engineered features",
+      "uses_sex_region": true
+    },
+    "rf_engineered_no_sex_region": {
+      "r2": 0.8308551046791349,
+      "mae": 2812.4260419102734,
+      "rmse": 4914.058990342076,
+      "r2_std": 0.04042507045343766,
+      "mae_std": 283.8446578096219,
+      "rmse_std": 545.4755577302219,
+      "description": "Random Forest, tuned, engineered features, without sex/region",
+      "uses_sex_region": false
+    },
+    "gbr_engineered": {
+      "r2": 0.8390712486263374,
+      "mae": 2728.787131853419,
+      "rmse": 4796.456842143057,
+      "r2_std": 0.038021929270974274,
+      "mae_std": 264.1730653718638,
+      "rmse_std": 542.7785355329934,
+      "description": "Gradient Boosting, engineered features",
+      "uses_sex_region": true
+    },
+    "gbr_engineered_no_sex_region": {
+      "r2": 0.8368677720759584,
+      "mae": 2758.7015519277506,
+      "rmse": 4828.4858918146365,
+      "r2_std": 0.03848731652203894,
+      "mae_std": 277.28978011094284,
+      "rmse_std": 543.3240032713759,
+      "description": "Gradient Boosting, engineered features, without sex/region",
+      "uses_sex_region": false
+    },
+    "gbr_engineered_huber": {
+      "r2": 0.8396190773159566,
+      "mae": 1860.2533262490485,
+      "rmse": 4777.918690635307,
+      "r2_std": 0.04350581523906078,
+      "mae_std": 230.00698663994936,
+      "rmse_std": 626.548023296785,
+      "description": "Gradient Boosting, Huber loss (robust to outliers)",
+      "uses_sex_region": true
+    },
+    "gbr_engineered_huber_no_sex_region": {
+      "r2": 0.8378463230672536,
+      "mae": 1941.0193783678321,
+      "rmse": 4805.116688493532,
+      "r2_std": 0.04348094590626693,
+      "mae_std": 247.9148980124988,
+      "rmse_std": 625.331236193293,
+      "description": "Gradient Boosting, Huber loss (robust to outliers), without sex/region",
+      "uses_sex_region": false
+    },
+    "gbr_log_target": {
+      "r2": 0.8364140281974233,
+      "mae": 2329.9065992417954,
+      "rmse": 4834.157338906284,
+      "r2_std": 0.039737494031504485,
+      "mae_std": 258.63385339331023,
+      "rmse_std": 562.5436864747361,
+      "description": "Gradient Boosting on log(charges)",
+      "uses_sex_region": true
+    },
+    "gbr_log_target_no_sex_region": {
+      "r2": 0.8344041265736625,
+      "mae": 2357.6349301441855,
+      "rmse": 4864.283814525125,
+      "r2_std": 0.040376529270316326,
+      "mae_std": 294.340764154862,
+      "rmse_std": 581.2946249435527,
+      "description": "Gradient Boosting on log(charges), without sex/region",
+      "uses_sex_region": false
+    }
+  },
+  "holdout": {
+    "rf_original": {
+      "r2": 0.8837985817600991,
+      "mae": 2458.20717117339,
+      "rmse": 4092.807892211086
+    },
+    "chosen": {
+      "r2": 0.9276963125113276,
+      "mae": 1153.7255471267604,
+      "rmse": 3228.4634152193
+    },
+    "interval": {
+      "target_coverage": 0.9,
+      "coverage": 0.9514925373134329,
+      "coverage_smokers": 0.9090909090909091,
+      "coverage_non_smokers": 0.9624413145539906,
+      "n_test": 268
+    }
+  },
+  "chosen": {
+    "name": "gbr_engineered_huber_no_sex_region",
+    "base": "gbr_engineered_huber",
+    "uses_sex_region": false,
+    "description": "Gradient Boosting, Huber loss (robust to outliers), without sex/region"
+  },
+  "feature_importance": {
+    "smoker_bmi": 0.7710063943379418,
+    "age": 0.08029081660787216,
+    "age_sq": 0.052855245644896826,
+    "bmi": 0.04168781273855182,
+    "smoker": 0.039610753290065526,
+    "children": 0.007983865775055417,
+    "obese": 0.0039471098529910795,
+    "smoker_obese": 0.0026180017526253236
+  },
+  "trained_rows": 1337,
+  "interval_offsets": {
+    "yes": [
+      -1497.7828132970164,
+      11081.650500701186
+    ],
+    "no": [
+      -898.9719826025635,
+      14699.423761445634
+    ]
+  },
+  "seconds": 196.8
+}

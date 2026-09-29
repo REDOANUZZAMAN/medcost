@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MedCost — honest medical insurance cost estimates</title>
+<meta name="description" content="Estimate annual medical insurance charges with a 90% range, what-if scenarios, and an honest evaluation.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%232a78d6%22/%3E%3Cpath d=%22M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z%22 fill=%22white%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="viz-root">
+<header class="top">
+  <div class="wrap">
+    <span class="logo">Med<span>Cost</span></span>
+    <nav><a href="#estimate">Estimate</a><a href="#honest">How accurate?</a><a href="#about">About</a></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>What might your medical insurance cost?</h1>
+    <p class="lede">An estimate <em>with a range</em>, the changes that would move it most,
+      and accuracy numbers measured without the data leak that inflated the original project.</p>
+  </section>
+
+  <section id="estimate" class="grid">
+    <form id="form" class="card" novalidate>
+      <h2>About you</h2>
+      <label>Age <output id="ageOut">35</output>
+        <input type="range" name="age" min="18" max="64" value="35" id="age"></label>
+      <label>Height &amp; weight <small>(or type your BMI)</small></label>
+      <div class="row3">
+        <input type="number" id="height" placeholder="Height cm" min="100" max="230" inputmode="decimal">
+        <input type="number" id="weight" placeholder="Weight kg" min="30" max="250" inputmode="decimal">
+        <input type="number" name="bmi" id="bmi" value="27.5" step="0.1" min="10" max="80" aria-label="BMI">
+      </div>
+      <p class="hint" id="bmiHint"></p>
+      <label>Children covered
+        <select name="children">
+          <option>0</option><option selected>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+        </select></label>
+      <fieldset class="seg">
+        <legend>Do you smoke?</legend>
+        <input type="radio" name="smoker" value="no" id="sn" checked><label for="sn">No</label>
+        <input type="radio" name="smoker" value="yes" id="sy"><label for="sy">Yes</label>
+      </fieldset>
+      <details class="more">
+        <summary>Sex &amp; region (not used for pricing)</summary>
+        <p class="hint">The model ignores these — removing them cost no accuracy
+          (see <a href="#honest">How accurate?</a>). Kept only so the form mirrors the dataset.</p>
+        <select name="sex"><option value="female">female</option><option value="male">male</option></select>
+        <select name="region"><option>northeast</option><option>northwest</option><option>southeast</option><option>southwest</option></select>
+      </details>
+      <button type="submit">Estimate my cost</button>
+    </form>
+
+    <div class="card result" id="result" aria-live="polite">
+      <h2>Estimated annual charges</h2>
+      <div class="big" id="pred">—</div>
+      <div class="range" id="rangeText">Fill in the form to get an estimate.</div>
+      <div class="rangebar" id="rangebar" hidden>
+        <div class="rb-track"><div class="rb-fill" id="rbFill"></div><div class="rb-dot" id="rbDot"></div></div>
+        <div class="rb-labels"><span id="rbLo"></span><span id="rbHi"></span></div>
+      </div>
+      <div id="warn"></div>
+      <h3>What would change it?</h3>
+      <ul class="whatif" id="whatif"></ul>
+    </div>
+  </section>
+
+  <section class="card" id="chartCard" hidden>
+    <h2>Your estimate across ages</h2>
+    <p class="sub">Same profile, only age changes. The other line flips smoking status.</p>
+    <div class="legend" id="legend"></div>
+    <div class="chart" id="chart"></div>
+    <details><summary>Show as table</summary><div id="chartTable"></div></details>
+  </section>
+
+  <section id="honest">
+    <h2 class="sec">How accurate is this? <span class="tag">the gap we fixed</span></h2>
+    <div class="grid3" id="facts"></div>
+    <div class="card">
+      <h3>Same untouched test set, three ways of scoring</h3>
+      <table class="cmp" id="cmp"></table>
+      <p class="hint" id="cmpNote"></p>
+    </div>
+    <div class="card">
+      <h3>All models tried (5-fold cross-validation, repeated 3×, on unique rows only)</h3>
+      <table class="cmp" id="cv"></table>
+    </div>
+  </section>
+
+  <section id="about" class="card about">
+    <h2>About</h2>
+    <p>MedCost is a rebuilt version of
+      <a href="https://github.com/611noorsaeed/Medical-Insurance-Cost-Predictor" rel="noopener">Medical-Insurance-Cost-Predictor</a>.
+      What changed: duplicates removed before splitting; honest cross-validated model selection;
+      a smoker × obesity feature; a gradient-boosting model with a robust (Huber) loss;
+      90% prediction ranges calibrated separately for smokers and non-smokers; what-if scenarios;
+      warnings outside the training range; sex and region dropped from pricing.</p>
+    <p class="hint">Educational tool trained on a small public US dataset (1,337 people, ages 18–64).
+      Not a quote, not financial or medical advice.</p>
+  </section>
+</main>
+<footer class="wrap foot">MedCost · REDOANUZZAMAN · <a href="/api/metrics">metrics.json</a></footer>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
