@@ -1,0 +1,45 @@
+.viz-root { --muted-mark: #a9a8a2; }
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz-root { --muted-mark: #7a7974; }
+}
+.logo { color: inherit; text-decoration: none; }
+.report { max-width: 860px; }
+.report article { padding-bottom: 24px; }
+.title { padding: 40px 0 8px; }
+.kicker { text-transform: uppercase; letter-spacing: .08em; font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 8px; }
+.byline { color: var(--text-muted); margin: 0; }
+.report h2 { font-size: 22px; margin: 36px 0 12px; }
+.report h3 { font-size: 17px; margin: 22px 0 8px; }
+.report p, .report li { color: var(--text-primary); }
+.report section > p { max-width: 760px; }
+.report li { margin: 4px 0; }
+.abstract { margin-top: 20px; }
+.abstract h2 { margin: 0 0 8px; font-size: 16px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); }
+.abstract p { margin: 0; }
+code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--grid); padding: 1px 5px; border-radius: 5px; }
+figure { margin: 20px 0; }
+figcaption { color: var(--text-secondary); font-size: 14px; margin-bottom: 10px; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+.chart .atitle { fill: var(--text-muted); font-size: 12px; }
+.chart .ref { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 4 4; }
+.chart .reflbl { fill: var(--text-muted); font-size: 12px; }
+.chart .blbl { fill: var(--text-secondary); font-size: 13px; }
+.chart .blbl.strong { fill: var(--text-primary); font-weight: 700; }
+.chart .vlbl { fill: var(--text-primary); font-size: 12px; font-variant-numeric: tabular-nums; }
+.compact { max-width: 620px; }
+.tcap { color: var(--text-secondary); font-size: 14px; margin-top: 6px; }
+.report table.cmp { margin-top: 8px; }
+#tip { position: fixed; z-index: 20; }
+.refs li { font-size: 14px; color: var(--text-secondary); }
+
+@media print {
+  @page { size: A4; margin: 16mm 14mm; }
+  body { font-size: 11pt; }
+  .top, .foot, #tip { display: none !important; }
+  .viz-root { background: #fff; min-height: 0; }
+  .card { border: 1px solid #ddd; break-inside: avoid; }
+  figure, table, .tcap { break-inside: avoid; }
+  h2, h3 { break-after: avoid; }
+  .title { padding-top: 0; }
+  a { color: inherit; }
+}

@@ -63,3 +63,19 @@ def test_metrics_report_the_leak():
 
 def test_no_ageing_scenario_at_top_of_range():
     assert all(w["label"] != "In 10 years" for w in post(age=64).json()["what_if"])
+
+
+def test_report_page_and_data():
+    assert "Project report" in client.get("/report").text
+    r = client.get("/api/report").json()
+    assert len(r["points"]) == 1337 and r["holdout"]
+
+
+def test_basic_auth_when_password_set(monkeypatch):
+    import app.main as main
+    monkeypatch.setattr(main, "APP_PASSWORD", "s3cret")
+    assert client.get("/").status_code == 401
+    assert client.get("/", auth=("dev", "wrong")).status_code == 401
+    assert client.get("/", headers={"Authorization": "Basic !!!"}).status_code == 401
+    assert client.get("/", auth=("dev", "s3cret")).status_code == 200
+    assert client.get("/healthz").status_code == 200

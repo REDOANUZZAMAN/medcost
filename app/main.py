@@ -1,12 +1,15 @@
 """MedCost web app: FastAPI JSON API + a single static page."""
+import base64
 import json
+import os
+import secrets
 from pathlib import Path
 from typing import Literal
 
 import joblib
 import pandas as pd
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -20,8 +23,27 @@ bundle = joblib.load(ART / "model.joblib")
 MODEL, OFFSETS = bundle["model"], bundle["interval_offsets"]
 USE_SEX_REGION = bundle["use_sex_region"]
 METRICS = json.loads((ART / "metrics.json").read_text())
+REPORT_DATA = ART / "report.json"
 
 app = FastAPI(title="MedCost", version="1.0.0")
+
+# Optional HTTP Basic auth (the dev server sets APP_PASSWORD; production leaves it unset).
+APP_USER, APP_PASSWORD = os.environ.get("APP_USER", "dev"), os.environ.get("APP_PASSWORD")
+
+
+@app.middleware("http")
+async def basic_auth(request: Request, call_next):
+    if not APP_PASSWORD or request.url.path == "/healthz":
+        return await call_next(request)
+    scheme, _, cred = request.headers.get("authorization", "").partition(" ")
+    try:
+        user, _, pw = base64.b64decode(cred).decode().partition(":")
+    except ValueError:
+        user = pw = ""
+    if scheme.lower() == "basic" and secrets.compare_digest(user.encode(), APP_USER.encode()) \
+            and secrets.compare_digest(pw.encode(), APP_PASSWORD.encode()):
+        return await call_next(request)
+    return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="MedCost dev"'})
 
 
 class Person(BaseModel):
@@ -92,6 +114,16 @@ def predict(p: Person):
 @app.get("/api/metrics")
 def metrics():
     return METRICS
+
+
+@app.get("/api/report")
+def report_data():
+    return FileResponse(REPORT_DATA, media_type="application/json")
+
+
+@app.get("/report")
+def report():
+    return FileResponse(STATIC / "report.html")
 
 
 @app.get("/healthz")

@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MedCost — Project Report</title>
+<meta name="description" content="Project report: honest estimation of medical insurance charges, with leakage audit, model comparison and calibrated prediction ranges.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%232a78d6%22/%3E%3Cpath d=%22M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z%22 fill=%22white%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/report.css">
+</head>
+<body>
+<div class="viz-root">
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="/">Med<span>Cost</span></a>
+    <nav><a href="/">Estimator</a><a href="#results">Results</a><a href="/static/medcost-report.pdf" id="pdfLink">PDF</a></nav>
+  </div>
+</header>
+
+<main class="wrap report">
+<article>
+  <header class="title">
+    <p class="kicker">Project report</p>
+    <h1>MedCost: honest estimation of medical insurance charges</h1>
+    <p class="byline">REDOANUZZAMAN · 29 September 2026</p>
+  </header>
+
+  <section class="abstract card">
+    <h2>Abstract</h2>
+    <p>A popular open-source <em>Medical Insurance Cost Predictor</em> reports R² =
+      <span data-m="leak_demo.original_protocol.r2" data-f="r2"></span> for a Random Forest trained on
+      the public US insurance dataset. We show that this figure is inflated by data leakage: the
+      published CSV contains <span data-m="dataset.duplicate_rows" data-f="int"></span> exact duplicate
+      rows out of <span data-m="dataset.rows_in_original_csv" data-f="int"></span>, so
+      <span data-leak-pct></span> of its test rows also appear in training. Re-evaluated on unique,
+      unseen people the same model scores R² = <span data-m="holdout.rf_original.r2" data-f="r2"></span>
+      and a mean absolute error (MAE) of <span data-m="holdout.rf_original.mae" data-f="usd"></span>.
+      We rebuild the pipeline with leakage-free evaluation, a smoker × BMI interaction feature and a
+      Huber-loss gradient-boosting model, cutting honest MAE to
+      <span data-m="holdout.chosen.mae" data-f="usd"></span> (R² =
+      <span data-m="holdout.chosen.r2" data-f="r2"></span>) while dropping sex and region from pricing.
+      Each estimate comes with a 90% prediction range from group-wise split conformal calibration,
+      which covered <span data-m="holdout.interval.coverage" data-f="pct"></span> of held-out people.
+      The model ships as a web application with what-if scenarios and out-of-range warnings.</p>
+  </section>
+
+  <section>
+    <h2>1. Introduction</h2>
+    <p>Health-insurance charges depend strongly on a few personal factors, which makes the problem a
+      standard teaching example for regression. For the person using an estimator, two things matter:
+      that the reported accuracy holds for people the model has never seen, and that an estimate
+      comes with an honest sense of its uncertainty. A single number with no range suggests more
+      precision than a dataset of about 1,300 people can support.</p>
+    <p>This project started as an audit of an existing implementation
+      (<a href="https://github.com/611noorsaeed/Medical-Insurance-Cost-Predictor" rel="noopener">611noorsaeed/Medical-Insurance-Cost-Predictor</a>,
+      a scikit-learn Random Forest behind a Streamlit form). It became a rebuild with three goals:</p>
+    <ol>
+      <li><strong>Honest evaluation:</strong> measure accuracy without leakage and choose models only on data the final test never touches.</li>
+      <li><strong>Better and fairer predictions:</strong> improve the error without relying on sex or region.</li>
+      <li><strong>Useful output:</strong> give a calibrated range, show which changes move the estimate, and warn when the input is outside the data.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>2. Dataset</h2>
+    <p>The data is the widely used US medical-cost dataset (Lantz, 2013). Each row is one
+      beneficiary: <em>age</em>, <em>sex</em>, <em>BMI</em>, number of <em>children</em> covered,
+      <em>smoker</em> status, US <em>region</em>, and annual medical <em>charges</em> billed to the insurer (the target).
+      After removing exact duplicates, <span data-r="dataset.rows" data-f="int"></span> unique rows remain.
+      Ages run from 18 to 64, and <span data-r="dataset.smoker_share" data-f="pct"></span> of people smoke.
+      Charges are strongly right-skewed: the mean is <span data-r="dataset.charges_mean" data-f="usd"></span>
+      but the median is only <span data-r="dataset.charges_median" data-f="usd"></span>.</p>
+
+    <figure class="card">
+      <figcaption><b>Figure 1.</b> Annual charges by age. Charges rise steadily with age in three
+        separate bands: non-smokers at the bottom, smokers in the upper two.</figcaption>
+      <div class="legend" data-legend="smoker"></div>
+      <div class="chart" id="figAge"></div>
+    </figure>
+
+    <p>Figure 1 shows the main structure. Charges rise almost linearly with age, but people fall
+      into separate bands, and smoking status decides which band. Figure 2 explains the split
+      between the two smoker bands: among smokers, charges jump at BMI 30, the clinical threshold for
+      obesity. Among non-smokers, BMI has almost no effect.</p>
+
+    <figure class="card">
+      <figcaption><b>Figure 2.</b> Annual charges by BMI. For smokers, charges step up at
+        BMI 30 (dashed line). For non-smokers they stay flat.</figcaption>
+      <div class="legend" data-legend="smoker"></div>
+      <div class="chart" id="figBmi"></div>
+    </figure>
+
+    <table class="cmp compact" id="groupTable"></table>
+    <p class="tcap"><b>Table 1.</b> Charges by group. Obese smokers pay about twice as much as other
+      smokers and about five times as much as non-smokers.</p>
+  </section>
+
+  <section>
+    <h2>3. Auditing the original project</h2>
+    <p>The original notebook loads a CSV of <span data-m="dataset.rows_in_original_csv" data-f="int"></span>
+      rows, applies an 80/20 random split and reports R² ≈ 0.95. However, the CSV is the original
+      dataset appended to itself, so only <span data-m="dataset.unique_rows" data-f="int"></span> rows
+      are unique. We reproduced the protocol exactly, with the same encoding, split seed and model.
+      <span data-m="leak_demo.original_protocol.test_rows_also_in_train" data-f="int"></span> of the
+      <span data-m="leak_demo.original_protocol.test_rows" data-f="int"></span> test rows
+      (<span data-leak-pct></span>) have an identical copy in the training set, including the target.
+      A Random Forest can memorise those rows, so the published score measures recall of seen data
+      rather than generalisation. This is a textbook case of train/test contamination (Kaufman et al., 2012).</p>
+
+    <figure class="card">
+      <figcaption><b>Figure 3.</b> The same Random Forest scored three ways (mean absolute error, lower is
+        better). Removing the leak roughly doubles the original model's error. MedCost is scored on the
+        same honest test set.</figcaption>
+      <div class="chart" id="figLeak"></div>
+    </figure>
+
+    <p>The original app has two smaller problems. It prices by sex and region, and it accepts any age
+      from 0 to 100, although the data only covers 18–64, without warning the user.</p>
+  </section>
+
+  <section>
+    <h2>4. Method</h2>
+    <h3>4.1 Evaluation protocol</h3>
+    <p>We deduplicate first, then hold out a stratified 20% test set of
+      <span data-m="holdout.interval.n_test" data-f="int"></span> people (stratified on smoker, since
+      smokers are only a fifth of the data but dominate the error). We don't look at this test set
+      until the model is chosen. All model comparison uses 5-fold cross-validation repeated 3 times
+      (15 fits per candidate) on the remaining 80%. We report the mean and standard deviation across folds.</p>
+
+    <h3>4.2 Features</h3>
+    <p>Figures 1–2 suggest the interaction should be stated explicitly rather than left for the model
+      to find. Beyond the raw inputs, the feature set adds <code>age²</code>, an <code>obese</code>
+      flag (BMI ≥ 30), <code>smoker × obese</code> and <code>smoker × BMI</code>. Categoricals are
+      one-hot encoded, unlike the original's arbitrary ordinal region codes. The same
+      <code>engineer()</code> function is imported by both training and serving, so the two cannot drift apart.</p>
+
+    <h3>4.3 Candidate models</h3>
+    <p>We compared eight candidates: a mean-prediction baseline; the original linear and Random Forest
+      models on their original encoding; a linear model, a tuned Random Forest and gradient boosting
+      (Friedman, 2001) on the new features; gradient boosting with a log-transformed target; and
+      gradient boosting with the Huber loss (Huber, 1964). The Huber loss is squared for small residuals
+      and linear for large ones, so a few non-smokers with unexplained high charges (visible above the
+      bottom band in Figure 1) do not pull the fit. All models use scikit-learn (Pedregosa et al., 2011).</p>
+
+    <h3>4.4 Selection rule and fairness</h3>
+    <p>The candidate with the lowest cross-validated MAE wins. Each candidate on the new features was
+      also trained without sex and region. If that version is within one standard deviation of the
+      winner's MAE, we ship it. The reasoning: these attributes should not set an individual's price
+      unless they add real, measurable accuracy. In practice they add almost none.</p>
+
+    <h3>4.5 Prediction ranges</h3>
+    <p>Each estimate comes with a 90% range built by split conformal prediction (Vovk et al., 2005;
+      Lei et al., 2018). Out-of-fold residuals on the training data give empirical lower and upper
+      quantiles (with the finite-sample correction), which are added to the point prediction.
+      Residuals for smokers and non-smokers differ in size and shape, so the two groups are calibrated
+      separately. For deployment, the model is refitted on all unique rows and the offsets are recalibrated.</p>
+  </section>
+
+  <section id="results">
+    <h2>5. Results</h2>
+    <h3>5.1 Model comparison</h3>
+    <figure class="card">
+      <figcaption><b>Figure 4.</b> Cross-validated MAE for every candidate (dot = mean over 15 folds,
+        whisker = ±1 standard deviation). The shipped model is highlighted. “− sex/region” marks the version trained without those two inputs.</figcaption>
+      <div class="chart" id="figCv"></div>
+    </figure>
+    <p>Feature engineering does most of the work. The same linear model drops from
+      <span data-m="cv.linear_original.mae" data-f="usd"></span> to
+      <span data-m="cv.linear_engineered.mae" data-f="usd"></span> MAE once it gets the smoker × obesity
+      terms, and then beats the original Random Forest
+      (<span data-m="cv.rf_original.mae" data-f="usd"></span>). The Huber loss gives the largest single
+      gain (<span data-m="cv.gbr_engineered_huber.mae" data-f="usd"></span> against
+      <span data-m="cv.gbr_engineered.mae" data-f="usd"></span> for squared loss). Its RMSE stays close
+      to the other boosting models, which fits the explanation: it fits the typical case more tightly
+      and gives up nothing it could have predicted on the outliers. Dropping sex and region costs
+      <span data-fair-cost></span> of MAE, well inside one fold standard deviation
+      (<span data-m="cv.gbr_engineered_huber.mae_std" data-f="usd"></span>), so the fair version ships.</p>
+
+    <h3>5.2 Held-out test</h3>
+    <table class="cmp" id="holdoutTable"></table>
+    <p class="tcap"><b>Table 2.</b> The untouched test set (<span data-m="holdout.interval.n_test" data-f="int"></span>
+      unique people, never used for any choice).</p>
+
+    <figure class="card">
+      <figcaption><b>Figure 5.</b> Predicted against actual charges on the held-out test set. Points on the
+        dashed diagonal are exact. Points far below it are people charged much more than their inputs predict.</figcaption>
+      <div class="legend" data-legend="smoker"></div>
+      <div class="chart" id="figPva"></div>
+    </figure>
+
+    <p>On the held-out test set, MedCost halves the original model's error:
+      <span data-m="holdout.chosen.mae" data-f="usd"></span> against
+      <span data-m="holdout.rf_original.mae" data-f="usd"></span> MAE. Its honest R²
+      (<span data-m="holdout.chosen.r2" data-f="r2"></span>) comes within 0.03 of the <em>leaky</em>
+      number the original project published. Most points in Figure 5 sit close to the diagonal. The
+      remaining error is concentrated in a small set of non-smokers with high charges that none of the
+      six inputs explain. More modelling would not fix that. Better data would.</p>
+
+    <h3>5.3 What drives the estimate</h3>
+    <figure class="card">
+      <figcaption><b>Figure 6.</b> Impurity-based feature importance of the shipped model (share of total
+        loss reduction).</figcaption>
+      <div class="chart" id="figImp"></div>
+    </figure>
+    <p><code>smoker × BMI</code> alone accounts for <span data-imp="smoker_bmi"></span> of the model's
+      loss reduction. Age terms come second. Children barely matter.</p>
+
+    <h3>5.4 Are the ranges honest?</h3>
+    <table class="cmp compact" id="coverageTable"></table>
+    <p class="tcap"><b>Table 3.</b> Share of held-out people whose true charge fell inside their
+      90% range.</p>
+    <p>Coverage meets or exceeds the 90% target in both groups, so the ranges are, if anything,
+      slightly conservative. That is expected: they were calibrated on out-of-fold models trained on
+      80% of the training data, which are a little less accurate than the final model. The ranges are
+      also asymmetric. For non-smokers the upper offset
+      (<span data-m="interval_offsets.no.1" data-f="usd" data-sign></span>) is much wider than the lower
+      one (<span data-m="interval_offsets.no.0" data-f="usd" data-sign></span>). The data shows the
+      same thing: a non-smoker can land far above the typical charge but rarely far below it.</p>
+  </section>
+
+  <section>
+    <h2>6. System</h2>
+    <p>The model is served by a FastAPI application with a single static front end, with no framework
+      and no build step. <code>POST /api/predict</code> returns the estimate, its 90% range, warnings
+      for inputs outside the training data, what-if scenarios (quit smoking, BMI 25, both, ten years
+      older) and an age curve for the user's profile and its smoking counterpart. <code>GET /api/metrics</code>
+      exposes the full evaluation that this report and the site's “How accurate?” section are drawn from.
+      The trained bundle (about 110 kB) is baked into a Docker image and runs as a non-root user
+      behind Traefik with Let's Encrypt TLS. A development instance with live reload and Basic auth
+      runs alongside it. A test suite checks predictions, input validation, invariance to sex and
+      region, and the presence of the leakage finding.</p>
+  </section>
+
+  <section>
+    <h2>7. Limitations and ethics</h2>
+    <ul>
+      <li><strong>Small, old, US-only data.</strong> Only 1,337 people, from an unspecified year and insurer. Charges are what was billed, not premiums, so the estimates are not quotes.</li>
+      <li><strong>Missing drivers.</strong> Pre-existing conditions, plan type and income are not recorded. The high-charge non-smokers in Figure 5 are most likely explained by exactly these.</li>
+      <li><strong>Extrapolation.</strong> Ages outside 18–64 and BMIs outside the observed range get a warning, but the model still returns a number.</li>
+      <li><strong>Fairness is narrow.</strong> Removing sex and region shows the model does not price on them directly. Other features could still act as proxies, and smoking and BMI themselves raise their own fairness questions.</li>
+      <li><strong>Marginal coverage.</strong> The 90% ranges hold on average within each smoker group. They are not guaranteed for every individual profile.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>8. Conclusion</h2>
+    <p>The original project's headline accuracy came from duplicated rows, not from learning. With
+      leakage removed, one interaction feature and a loss that handles outliers, a slightly more
+      careful pipeline halves the honest error. It also stops using sex and region and attaches a
+      range that held for <span data-m="holdout.interval.coverage" data-f="pct"></span> of unseen people.
+      Future work: conditional (per-profile) intervals such as conformalised quantile regression, and a
+      recent, larger dataset with pre-existing-condition information.</p>
+  </section>
+
+  <section class="refs">
+    <h2>References</h2>
+    <ol>
+      <li>Friedman, J. H. (2001). Greedy function approximation: a gradient boosting machine. <em>Annals of Statistics</em>, 29(5), 1189–1232.</li>
+      <li>Huber, P. J. (1964). Robust estimation of a location parameter. <em>Annals of Mathematical Statistics</em>, 35(1), 73–101.</li>
+      <li>Kaufman, S., Rosset, S., Perlich, C., &amp; Stitelman, O. (2012). Leakage in data mining: formulation, detection, and avoidance. <em>ACM TKDD</em>, 6(4), 15.</li>
+      <li>Lantz, B. (2013). <em>Machine Learning with R</em>. Packt Publishing. (Source of the insurance dataset.)</li>
+      <li>Lei, J., G'Sell, M., Rinaldo, A., Tibshirani, R. J., &amp; Wasserman, L. (2018). Distribution-free predictive inference for regression. <em>JASA</em>, 113(523), 1094–1111.</li>
+      <li>Pedregosa, F., et al. (2011). Scikit-learn: machine learning in Python. <em>JMLR</em>, 12, 2825–2830.</li>
+      <li>Vovk, V., Gammerman, A., &amp; Shafer, G. (2005). <em>Algorithmic Learning in a Random World</em>. Springer.</li>
+    </ol>
+  </section>
+</article>
+</main>
+<footer class="wrap foot">MedCost · REDOANUZZAMAN · <a href="/api/metrics">metrics.json</a> · <a href="/api/report">report.json</a></footer>
+</div>
+<div class="tip" id="tip" hidden></div>
+<script src="/static/report.js"></script>
+</body>
+</html>

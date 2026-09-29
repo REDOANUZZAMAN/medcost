@@ -30,6 +30,7 @@ partly from the model remembering rows it had already seen.
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python train.py            # ~3 min; writes artifacts/model.joblib + metrics.json
+.venv/bin/python report_data.py      # ~15 s; writes artifacts/report.json (report charts)
 .venv/bin/uvicorn app.main:app --reload
 .venv/bin/python -m pytest -q
 ```
@@ -37,6 +38,18 @@ python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 Docker: `docker build -t medcost . && docker run -p 8000:8000 medcost`. The build uses the aliyun
 PyPI mirror by default; pass `--build-arg PIP_INDEX_URL=https://pypi.org/simple` to use PyPI instead.
 
-API: `POST /api/predict` `{"age":45,"bmi":33,"children":2,"smoker":"yes"}` · `GET /api/metrics` · `GET /healthz`.
+## Project report
+
+`/report` is the written project report (dataset, leakage audit, method, results, limitations), with
+interactive figures drawn from `metrics.json` and `report.json`. A PDF copy is at
+`/static/medcost-report.pdf`. Re-render it after retraining with `node tools/render_report_pdf.js`
+(needs a running server and Playwright; see the script header).
+
+## Dev server
+
+Set `APP_PASSWORD` (and optionally `APP_USER`, default `dev`) to put the whole app behind HTTP Basic
+auth. `/healthz` stays open. Production leaves it unset.
+
+API: `POST /api/predict` `{"age":45,"bmi":33,"children":2,"smoker":"yes"}` · `GET /api/metrics` · `GET /api/report` · `GET /healthz`.
 
 This is an educational tool trained on a small public US dataset (ages 18–64). It is not a quote and not financial or medical advice.
